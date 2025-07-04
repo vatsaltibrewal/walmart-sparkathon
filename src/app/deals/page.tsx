@@ -1,25 +1,21 @@
 'use client'
 
-import React from 'react'
-import { useEffect, useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import axios from 'axios'
-import ProductCard from './ProductCard'
+import ProductCard from '../../components/ProductCard'
 
 interface Product {
   id: number
   name: string
   price: number
+  discountedPrice?: number
   image: string
   rating: number
   description: string
   category: string
 }
 
-interface CategoryPageProps {
-  category: string
-}
-
-export default function CategoryPage({ category }: CategoryPageProps) {
+export default function Deals() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -28,10 +24,10 @@ export default function CategoryPage({ category }: CategoryPageProps) {
     const fetchProducts = async () => {
       try {
         const response = await axios.get<Product[]>('/api/products')
-        const filteredProducts = response.data.filter(
-          product => product.category === category
+        const discountedProducts = response.data.filter(
+          product => product.discountedPrice !== undefined
         )
-        setProducts(filteredProducts)
+        setProducts(discountedProducts)
         setLoading(false)
       } catch (err) {
         setError('Failed to load products')
@@ -40,7 +36,7 @@ export default function CategoryPage({ category }: CategoryPageProps) {
     }
 
     fetchProducts()
-  }, [category])
+  }, [])
 
   if (loading) {
     return (
@@ -60,10 +56,13 @@ export default function CategoryPage({ category }: CategoryPageProps) {
 
   return (
     <div className="container-wrapper section">
-      <h1 className="text-2xl font-bold mb-6">{category}</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Today's Deals</h1>
+        <p className="text-gray-600">{products.length} deals available</p>
+      </div>
       {products.length === 0 ? (
         <div className="text-center py-8">
-          <p>No products found in this category.</p>
+          <p>No deals available at the moment.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

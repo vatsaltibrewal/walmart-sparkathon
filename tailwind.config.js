@@ -15,6 +15,6 @@ module.exports = {
   },
   plugins: [
     require('@tailwindcss/aspect-ratio'),
-    require('@tailwindcss/line-clamp'),
+    // Remove @tailwindcss/line-clamp as it's included by default in v3.3+
   ],
 }

@@ -1,20 +1,23 @@
+'use client'
+
 import React, { useState } from 'react'
 import { ShoppingCartIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useCart } from '../contexts/CartContext'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 
-interface NavbarProps {
-  onSearch: (query: string) => void
-}
-
-export default function Navbar({ onSearch }: NavbarProps) {
+export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState('')
   const { itemCount, total } = useCart()
+  const router = useRouter()
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setSearchQuery(value)
-    onSearch(value)
+    // Update URL search params
+    const params = new URLSearchParams()
+    if (value) params.set('search', value)
+    router.push(`/?${params.toString()}`)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
