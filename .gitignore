@@ -1,6 +1,8 @@
 # dependencies
-/node_modules
-/.pnp
+/walmart-webpage/node_modules
+/walmart-webpage/.pnp
+/walmart-agent/node_modules
+/walmart-agent/.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -9,14 +11,14 @@
 !.yarn/versions
 
 # testing
-/coverage
+/walmart-webpage/coverage
 
 # next.js
-/.next/
-/out/
+/walmart-webpage/.next/
+/walmart-webpage/out/
 
 # production
-/build
+/walmart-webpage/build
 
 # misc
 .DS_Store
@@ -29,14 +31,16 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
+/walmart-webpage/.env*
+/walmart-agent/.env*
 .env*
 
 # vercel
-.vercel
+/walmart-webpage/.vercel
 
 # typescript
-*.tsbuildinfo
-next-env.d.ts
+/walmart-webpage/*.tsbuildinfo
+/walmart-webpage/next-env.d.ts
 
 # private files
 /Prensentation_and_Docs_(Private)
