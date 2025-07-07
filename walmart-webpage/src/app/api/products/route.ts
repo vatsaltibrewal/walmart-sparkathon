@@ -34,6 +34,26 @@ export async function GET() {
         console.warn('Invalid image_urls JSON:', item.image_urls)
       }
 
+      // ✅ Better category handling
+      let category = 'misc'
+      try {
+        // Check if categories is a stringified array
+        if (item.categories && typeof item.categories === 'string') {
+          const categoriesArray = JSON.parse(item.categories)
+          if (Array.isArray(categoriesArray) && categoriesArray.length > 0) {
+            category = categoriesArray[0]
+          }
+        } else if (Array.isArray(item.categories) && item.categories.length > 0) {
+          category = item.categories[0]
+        } else if (item.category) {
+          category = item.category
+        }
+      } catch (err) {
+        console.warn('Invalid categories JSON:', item.categories)
+        // Fallback to item.category or 'misc'
+        category = item.category || 'misc'
+      }
+
       return {
         id: index + 1,
         name: item.product_name || 'Unnamed Product',
@@ -42,13 +62,15 @@ export async function GET() {
         image,
         rating: item.rating || 4.0,
         description: item.description || 'No description available.',
-        category: (
-          item.categories?.[0] ||
-          item.category ||
-          'misc'
-        ).toString().trim().toLowerCase(), // ✅ Normalize category
+        category: category.toString().trim().toLowerCase(),
       }
     })
+
+    // Debug logging to see category data
+    console.log('Sample product categories:', mapped.slice(0, 3).map(item => ({
+      name: item.name,
+      category: item.category
+    })))
 
     return NextResponse.json(mapped)
   } catch (error) {
