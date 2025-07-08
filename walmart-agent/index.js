@@ -37,17 +37,17 @@ const tools = [
         functionDeclarations: [
             {
                 name: "findProducts",
-                description: "Searches the product database with multiple optional filters. Use this for general searches like 'find me a t-shirt' or more specific ones like 'find a blue shirt under $50'. Returns products with ratings, availability, and images.",
+                description: "Searches the product database with multiple optional filters. Use this for general searches like 'find me a t-shirt' or more specific ones like 'find a blue shirt under $50'. The query parameter will search across product names, brands, and categories. Returns products with ratings, availability, and images.",
                 parameters: {
                     type: Type.OBJECT,
                     properties: {
                         query: {
                             type: Type.STRING,
-                            description: "The user's primary search term (e.g., 'shirt', 'laptop', 'phone')"
+                            description: "The user's primary search term (e.g., 'shirt', 'laptop', 'phone', 'tshirt'). This will search product names, brands, and categories."
                         },
                         category: {
                             type: Type.STRING,
-                            description: "Optional category filter (e.g., 'Electronics', 'Clothing', 'Home & Garden')"
+                            description: "Optional specific category filter (e.g., 'T-Shirts', 'Laptops', 'Headphones'). Use exact category names when known."
                         },
                         priceRange: {
                             type: Type.OBJECT,
@@ -93,6 +93,24 @@ const tools = [
                 }
             },
             {
+                name: "getProductsByCategory",
+                description: "Gets products from a specific category when user browses by category rather than searching. Use when user wants to explore a category like 'show me electronics' or 'what's in home & garden'.",
+                parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                        category: {
+                            type: Type.STRING,
+                            description: "Category name (e.g., 'Electronics', 'Home & Garden', 'Clothing')"
+                        },
+                        limit: {
+                            type: Type.NUMBER,
+                            description: "Maximum products to return (default: 20)"
+                        }
+                    },
+                    required: ["category"]
+                }
+            },
+            {
                 name: "getTrendingProducts",
                 description: "Finds the top-rated, most popular products currently available. Use this when the user asks for 'what's popular', 'trending items', 'best-sellers', 'top-rated products', or needs recommendations. Gets popular/trending products based on ratings and reviews.",
                 parameters: {
@@ -108,6 +126,14 @@ const tools = [
         ]
     }
 ];
+
+const fnMap = {
+  findProducts     : db.findProducts,
+  getProductDetails: db.getProductDetails,
+  getProductReviews: db.getProductReviews,
+  getProductsByCategory: db.getProductsByCategory,
+  getTrendingProducts: db.getTrendingProducts
+};
 
 const systemInstruction = `You are "Spark", Walmart's advanced AI shopping assistant. You help customers find products, compare options, and make informed purchasing decisions.
 
@@ -147,139 +173,135 @@ const systemInstruction = `You are "Spark", Walmart's advanced AI shopping assis
 - Provide actionable next steps (view details, check reviews, etc.)
 `;
 
-const toolFunctions = {
-    findProducts: db.findProducts,
-    getProductDetails: db.getProductDetails,
-    getProductReviews: db.getProductReviews,
-    getTrendingProducts: db.getTrendingProducts
-};
+app.post("/chat", async (req, res) => {
+  const { message, userId } = req.body;
 
-// Enhanced chat endpoint with better error handling and full functionality
-app.post('/chat', async (req, res) => {
+  if (!message || !userId) {
+    return res
+      .status(400)
+      .json({ error: "Both message and userId are required" });
+  }
+
+  console.log({ userId, message }, "Incoming chat request");
+
+  try {
+    // 1️⃣ Build conversation history in correct format
+    const history = await db.getChatHistory(userId);
+    const contents = [
+      // Add conversation history
+      ...history.map(h => ({
+        role: h.role,
+        parts: [{ text: h.parts[0].text }]
+      })),
+      // Add current user message
+      { role: "user", parts: [{ text: message }] }
+    ];
+
+    // 2️⃣ FIRST PASS: Ask Gemini which function to call (if any)
+    let resp1;
     try {
-        const { message, userId, sessionId } = req.body;
-
-        if (!message || !userId) {
-            return res.status(400).json({ 
-                error: "Message and userId are required.",
-                code: "MISSING_REQUIRED_FIELDS"
-            });
-        }
-
-        // Validate userId format (phone number or email)
-        const userIdRegex = /^(\+?[\d\s\-\(\)]+|[\w\.-]+@[\w\.-]+\.\w+)$/;
-        if (!userIdRegex.test(userId)) {
-            return res.status(400).json({
-                error: "Invalid userId format. Use phone number or email.",
-                code: "INVALID_USER_ID"
-            });
-        }
-
-        const history = await db.getChatHistory(userId);
-        
-        const contents = [
-            ...history.map(msg => ({
-                role: msg.role,
-                parts: [{ text: msg.parts[0].text }]
-            })),
-            {
-                role: 'user',
-                parts: [{ text: message }]
-            }
-        ];
-
-        const config = {
-            tools: tools
-        };
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: contents,
-            config: config,
-            systemInstruction: systemInstruction
-        });
-
-        let finalReply;
-
-        if (response.functionCalls && response.functionCalls.length > 0) {
-            const functionCall = response.functionCalls[0];
-            
-            // Call the appropriate tool function
-            const toolResponse = await toolFunctions[functionCall.name](functionCall.args);
-            
-            // Prepare function response
-            const functionResponsePart = {
-                name: functionCall.name,
-                response: { result: toolResponse }
-            };
-
-            // Add the assistant's response with function call to contents
-            contents.push(response.candidates[0].content);
-            
-            // Add the function response to contents
-            contents.push({
-                role: 'user',
-                parts: [{ functionResponse: functionResponsePart }]
-            });
-
-            // Get the final response after function call
-            const finalResponse = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: contents,
-                config: config,
-                systemInstruction: systemInstruction
-            });
-
-            finalReply = finalResponse.text;
-        } else if (response.text) {
-            finalReply = response.text;
-        } else {
-            finalReply = "I'm not sure how to respond to that. Could you please rephrase your question about Walmart products?";
-        }
-
-        // Save messages with session metadata
-        await db.saveChatMessage(userId, 'user', message, { sessionId });
-        await db.saveChatMessage(userId, 'model', finalReply, { sessionId });
-
-        res.json({ 
-            reply: finalReply,
-            sessionId: sessionId || `session_${Date.now()}`,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        console.error("Error in /chat endpoint:", error);
-        res.status(500).json({ 
-            error: "I'm experiencing technical difficulties. Please try again in a moment.",
-            code: "INTERNAL_SERVER_ERROR"
-        });
+      resp1 = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents,
+        config: { tools },
+        systemInstruction
+      });
+    } catch (e) {
+      console.error("Error in first Gemini call:", e);
+      throw e;
     }
-});
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({ 
-        status: 'healthy', 
-        timestamp: new Date().toISOString(),
-        version: '2.0.0'
+    // 3️⃣ Check if there are function calls in the response
+    let finalReply = "";
+    let toolResult = null;
+
+    if (resp1.functionCalls && resp1.functionCalls.length > 0) {
+      // 3a. Execute the function call
+      const functionCall = resp1.functionCalls[0];
+      const { name, args } = functionCall;
+      
+      console.log(`Function to call: ${name}`);
+      console.log(`Arguments: ${JSON.stringify(args)}`);
+
+      if (fnMap[name]) {
+        try {
+          toolResult = await fnMap[name](args);
+          console.log(`Function result:`, toolResult);
+        } catch (funcError) {
+          console.error(`Error executing function ${name}:`, funcError);
+          toolResult = { error: `Failed to execute ${name}` };
+        }
+      } else {
+        console.error(`Unknown function: ${name}`);
+        toolResult = { error: `Unknown function: ${name}` };
+      }
+
+      // 3b. Add the model's response with function call to conversation
+      contents.push({
+        role: "model",
+        parts: [{ functionCall: functionCall }]
+      });
+
+      // 3c. Add the function response to conversation
+      contents.push({
+        role: "user",
+        parts: [{
+          functionResponse: {
+            name: name,
+            response: { result: toolResult }
+          }
+        }]
+      });
+
+      // 3d. SECOND PASS: Get human-friendly response
+      let resp2;
+      try {
+        resp2 = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents,
+          config: { tools },
+          systemInstruction
+        });
+        finalReply = (resp2.text || "").trim();
+      } catch (e) {
+        console.error("Error in second Gemini call:", e);
+        finalReply = "I was able to get the information, but had trouble formatting the response. Please try again.";
+      }
+
+    } else {
+      // 4️⃣ No function call: just use the direct text response
+      finalReply = (resp1.text || "").trim();
+    }
+
+    // Handle empty responses
+    if (!finalReply) {
+      finalReply = "I'm sorry, I didn't understand that. Could you please rephrase your question?";
+    }
+
+    // 5️⃣ Save conversation history
+    await db.saveChatMessage(userId, "user", message);
+    await db.saveChatMessage(userId, "model", finalReply);
+
+    // 6️⃣ Return response
+    res.json({
+      reply: finalReply,
+      data: toolResult
     });
+
+  } catch (err) {
+    console.error("Error in /chat:", err);
+    res.status(500).json({ 
+      error: "Internal error, please try again.",
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
 });
 
-// Get user's chat history endpoint
-app.get('/chat/history/:userId', async (req, res) => {
-    try {
-        const { userId } = req.params;
-        const { limit = 50 } = req.query;
-        
-        const history = await db.getChatHistory(userId, parseInt(limit));
-        res.json({ history, count: history.length });
-    } catch (error) {
-        console.error("Error fetching chat history:", error);
-        res.status(500).json({ error: "Failed to fetch chat history" });
-    }
-});
+// Health check
+app.get("/health", (_req, res) =>
+  res.json({ status: "ok", timestamp: new Date().toISOString() })
+);
 
 app.listen(PORT, () => {
-    console.log(`🤖 Walmart AI Agent server running on port ${PORT}`);
-    console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+  console.log(`Server running on port ${PORT}`);
 });
