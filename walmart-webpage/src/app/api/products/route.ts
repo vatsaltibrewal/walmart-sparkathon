@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
+import { ScanCommand, DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 
 const client = new DynamoDBClient({
   region: process.env.AWS_REGION,
@@ -70,6 +72,9 @@ export async function GET() {
       category: item.category
     })))
 
-  return NextResponse.json(products)
-
+    return NextResponse.json(mapped)
+  } catch (error) {
+    console.error('DynamoDB Fetch Error:', error)
+    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 })
+  }
 }
