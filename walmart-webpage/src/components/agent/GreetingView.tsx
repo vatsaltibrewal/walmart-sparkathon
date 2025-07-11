@@ -60,8 +60,8 @@ export default function GreetingView({ onResultsFound }: { onResultsFound: () =>
               <Image 
                   src="/images/yellow-mascot.png"
                   alt="Spark AI Mascot" 
-                  layout="fill" 
-                  objectFit="contain"
+                  fill
+                  className="object-contain"
                   priority // Load this image first
               />
           </div>

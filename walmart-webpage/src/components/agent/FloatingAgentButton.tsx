@@ -15,10 +15,10 @@ export default function FloatingAgentButton() {
       >
         {/* Use the Next.js Image component for optimized image loading */}
         <Image
-          src="/images/blue-mascot.png" // **ACTION**: Place your blue mascot image here
+          src="/images/blue-mascot.png"
           alt="Spark AI Assistant"
-          layout="fill"
-          objectFit="contain"
+          fill // CHANGE: layout="fill" becomes the boolean prop 'fill'
+          className="object-contain" // ADD/CHANGE: Use className for object-fit
         />
       </motion.div>
     </Link>
