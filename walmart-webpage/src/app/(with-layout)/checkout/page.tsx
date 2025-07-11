@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useCart } from '../../contexts/CartContext'
+import { useCart } from '@/contexts/CartContext'
 
 interface PaymentDetails {
   cardNumber: string
