@@ -15,9 +15,11 @@
     "@heroicons/react": "^2.2.0",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.10.0",
+    "framer-motion": "^12.23.0",
     "next": "^15.3.5",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0"
   },
   "devDependencies": {
     "@tailwindcss/aspect-ratio": "^0.4.2",

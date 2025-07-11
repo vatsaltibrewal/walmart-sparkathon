@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
-import ProductCard from '../../components/ProductCard'
+import ProductCard from '../../../components/ProductCard'
 
 interface Product {
   id: number

@@ -33,98 +33,60 @@ const ai = new GoogleGenAI({
 
 // Enhanced tools with comprehensive function definitions
 const tools = [
-    {
-        functionDeclarations: [
-            {
-                name: "findProducts",
-                description: "Searches the product database with multiple optional filters. Use this for general searches like 'find me a t-shirt' or more specific ones like 'find a blue shirt under $50'. The query parameter will search across product names, brands, and categories. Returns products with ratings, availability, and images.",
-                parameters: {
-                    type: Type.OBJECT,
-                    properties: {
-                        query: {
-                            type: Type.STRING,
-                            description: "The user's primary search term (e.g., 'shirt', 'laptop', 'phone', 'tshirt'). This will search product names, brands, and categories."
-                        },
-                        category: {
-                            type: Type.STRING,
-                            description: "Optional specific category filter (e.g., 'T-Shirts', 'Laptops', 'Headphones'). Use exact category names when known."
-                        },
-                        priceRange: {
-                            type: Type.OBJECT,
-                            properties: {
-                                min: { type: Type.NUMBER, description: "Minimum price" },
-                                max: { type: Type.NUMBER, description: "Maximum price" }
-                            }
-                        },
-                        limit: {
-                            type: Type.NUMBER,
-                            description: "Maximum number of products to return (default: 10)"
-                        }
-                    },
-                    required: ["query"]
-                }
-            },
-            {
-                name: "getProductDetails",
-                description: "Fetches all detailed information for a single, specific product using its unique product_id. Use this only after the user indicates interest in a specific product from a search result. Gets complete details including specifications, description, pricing, and availability.",
-                parameters: {
-                    type: Type.OBJECT,
-                    properties: {
-                        product_id: {
-                            type: Type.NUMBER,
-                            description: "The unique identifier of the product, obtained from a previous product search"
-                        }
-                    },
-                    required: ["product_id"]
-                }
-            },
-            {
-                name: "getProductReviews",
-                description: "Gets customer reviews for a specific product, identified by its product_id. Use this when the user asks what other people think, for a summary of opinions, or about the star ratings. Retrieves customer reviews and rating distribution for a product to help users understand customer satisfaction.",
-                parameters: {
-                    type: Type.OBJECT,
-                    properties: {
-                        product_id: {
-                            type: Type.NUMBER,
-                            description: "The unique identifier for the product"
-                        }
-                    },
-                    required: ["product_id"]
-                }
-            },
-            {
-                name: "getProductsByCategory",
-                description: "Gets products from a specific category when user browses by category rather than searching. Use when user wants to explore a category like 'show me electronics' or 'what's in home & garden'.",
-                parameters: {
-                    type: Type.OBJECT,
-                    properties: {
-                        category: {
-                            type: Type.STRING,
-                            description: "Category name (e.g., 'Electronics', 'Home & Garden', 'Clothing')"
-                        },
-                        limit: {
-                            type: Type.NUMBER,
-                            description: "Maximum products to return (default: 20)"
-                        }
-                    },
-                    required: ["category"]
-                }
-            },
-            {
-                name: "getTrendingProducts",
-                description: "Finds the top-rated, most popular products currently available. Use this when the user asks for 'what's popular', 'trending items', 'best-sellers', 'top-rated products', or needs recommendations. Gets popular/trending products based on ratings and reviews.",
-                parameters: {
-                    type: Type.OBJECT,
-                    properties: {
-                        limit: {
-                            type: Type.NUMBER,
-                            description: "Number of trending products to return (default: 10)"
-                        }
-                    }
-                }
+  {
+    functionDeclarations: [
+      {
+        name: "findProducts",
+        description: "Searches the product catalog for items matching a user's query. Use this as the first step when a user is looking for something. Can filter by text, category, and price.",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            query: { type: "STRING", description: "The user's search query (e.g., 'running shoes', 'laptop')." },
+            category: { type: "STRING", description: "An optional product category to narrow the search." },
+            priceRange: {
+              type: "OBJECT", properties: {
+                min: { type: "NUMBER", description: "Minimum price." },
+                max: { type: "NUMBER", description: "Maximum price." }
+              }
             }
-        ]
-    }
+          },
+          required: ["query"]
+        }
+      },
+      {
+        name: "getProductDetails",
+        description: "Fetches ALL details for a single product ID. Use this when a user asks for more information, specifications, or to 'tell me more' about a specific item you've already found.",
+        parameters: {
+          type: "OBJECT",
+          properties: { product_id: { type: "NUMBER", description: "The unique ID of the product." } },
+          required: ["product_id"]
+        }
+      },
+      {
+        name: "getProductReviews",
+        description: "Retrieves customer reviews for a single product ID. Use this when a user asks 'what do people think?', 'are the reviews good?', or wants a summary of opinions.",
+        parameters: {
+          type: "OBJECT",
+          properties: { product_id: { type: "NUMBER", description: "The unique ID of the product." } },
+          required: ["product_id"]
+        }
+      },
+      {
+        name: "getTrendingProducts",
+        description: "Returns a list of the current best-selling or top-rated products. Use this when a user asks for 'what's popular?', 'trending items', or 'top products' without specifying a category.",
+        parameters: { type: "OBJECT", properties: {} } // No parameters needed
+      },
+      {
+        name: "getProductsByCategory",
+        description: "A highly efficient function to browse all items in an EXACT category. Prefer this over 'findProducts' if the user asks to see 'all laptops' or 'all t-shirts'.",
+        parameters: {
+            type: "OBJECT",
+            properties: { category: { type: "STRING", description: "The exact product category name." } },
+            required: ["category"]
+        }
+      }
+    ]
+  }
 ];
 
 const fnMap = {
@@ -135,42 +97,15 @@ const fnMap = {
   getTrendingProducts: db.getTrendingProducts
 };
 
-const systemInstruction = `You are "Spark", Walmart's advanced AI shopping assistant. You help customers find products, compare options, and make informed purchasing decisions.
+const systemInstruction = `You are "Spark", a friendly, knowledgeable, and slightly enthusiastic AI shopping assistant for Walmart. Your primary goal is to help users find the perfect product by having a natural, helpful conversation.
 
-**Your Enhanced Capabilities:**
-1. **Smart Product Search**: Use findProducts with filters for category, price range, and specific requirements
-2. **Detailed Product Information**: Provide comprehensive product details including specifications and availability
-3. **Review Analysis**: Summarize customer reviews and ratings to help decision-making
-4. **Category Browsing**: Help users explore products by category
-5. **Trending Recommendations**: Suggest popular and highly-rated products
-6. **Price Comparison**: Help users find the best value within their budget
-7. **Availability Checking**: Inform about delivery and pickup options
-
-**Core Directives:**
-1. **Be Conversational:** Do not just return data. Summarize it in a helpful, friendly way.
-2. **NEVER Invent Information:** Your knowledge comes ONLY from the functions you can call. If the tools don't have the answer, say "I couldn't find that information for you, but I can try something else."
-3. **Use the Right Tool:**
-   - For general searches like "find a laptop" or "show me some t-shirts under $20", use **findProducts**.
-   - If the user asks for details about a specific product you've already found, use its product_id with **getProductDetails**.
-   - If the user asks for opinions or ratings on a specific product, use its product_id with **getProductReviews**.
-   - If the user asks for "what's popular", "trending", or "top-rated", use **getTrendingProducts**.
-   - If the user wants to browse by category, use **getProductsByCategory**.
-4. **Stay On Topic:** Politely decline any questions not related to Walmart products or shopping.
-
-**Enhanced Guidelines:**
-- Always provide accurate, real-time information from the database
-- When discussing prices, mention the currency and any availability constraints
-- Summarize reviews constructively, highlighting both pros and cons
-- Suggest alternatives when specific products aren't available
-- Help users make informed decisions with product comparisons
-- Be proactive in offering related products or better alternatives
-- Handle phone number userIDs professionally (these may come from WhatsApp or SMS)
-
-**Response Format:**
-- Present product information clearly with key details
-- Use bullet points for specifications and features
-- Include pricing, ratings, and availability prominently
-- Provide actionable next steps (view details, check reviews, etc.)
+**Your Core Persona & Rules:**
+1.  **Be Conversational:** Do not just dump data. Introduce yourself, ask clarifying questions, and present information in a friendly, easy-to-understand way.
+2.  **Guide the User:** Proactively guide the conversation. After finding products, ask the user if they'd like to know more details or hear about reviews.
+3.  **Summarize, Don't List:** When you get data back from a tool (especially reviews), your job is to *summarize* it. For example, if you get back positive and negative reviews, summarize them like this: "It seems people really love the performance, but a few mentioned that it's a bit pricey."
+4.  **Explain, Don't Assume:** If you get back technical specs, briefly explain what they mean in a simple way. (e.g., "It has 16GB of RAM, which is great for multitasking and running demanding applications smoothly.")
+5.  **Always Use Your Tools:** You have NO internal knowledge of products. You MUST use a tool to answer any product-related question. If a tool returns an error or no results, you must inform the user that you couldn't find the information and ask them to try a different search.
+6.  **Admit Your Limits:** If the user asks for something you cannot do (e.g., "place the order for me"), politely state that you can help them find the product and add it to their cart, but you can't complete the purchase.
 `;
 
 app.post("/chat", async (req, res) => {
