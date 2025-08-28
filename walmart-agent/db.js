@@ -179,9 +179,6 @@ export const getProductsByCategory = async ({ category, limit = 20 }) => {
 };
 
 
-// --- CHAT HISTORY FUNCTIONS ---
-// Your functions were perfect, no changes needed here.
-
 /**
  * Fetches the last 20 messages for a user to provide conversation context.
  */
